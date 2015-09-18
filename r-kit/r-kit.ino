@@ -5,7 +5,6 @@
 #include "Timer.h"
 
 Timer t;
-int ledPin = 13;  // use the built in LED on pin 13 of the Uno
 int state = 0;
 int last = 0;
 
@@ -16,10 +15,13 @@ const int readingButtonPin = 3;
 int calibrationStateLast = 0;
 int readingStateLast = 0;
 
+String inputString = "";         // a string to hold incoming data
+boolean stringComplete = false;  // whether the string is complete
+
+/*
+Setup the arduino device once on turn on
+*/
 void setup() {
-    // sets the pins as outputs:
-    pinMode(ledPin, OUTPUT);
-    digitalWrite(ledPin, LOW);
     Serial.begin(9600); // Default connection rate for my BT module
     
     // initialize the pushbutton pin as an input:
@@ -27,6 +29,11 @@ void setup() {
     pinMode(readingButtonPin, INPUT);
 }
 
+/*
+Main loop
+Checks the states of buttons
+as well as responding to a line of text coming in over Serial
+*/
 void loop() {
     t.update();
     int calibrationState = digitalRead(calibrationButtonPin);
@@ -35,17 +42,49 @@ void loop() {
     if(calibrationState != calibrationStateLast){
       sendStartCalibration();
       calibrationStateLast = calibrationState;
-      t.after(3000, sendEndCalibration);
+      t.after(5000, sendEndCalibration);
     } else {
       calibrationStateLast == 0;
     }
     
     if(readingState != readingStateLast){
-      sendReading();
+      sendStartReading();
       readingStateLast = readingState;
+      t.after(5000, sendEndReading);
     } else {
       readingStateLast == 0;
     }
+    
+    if (stringComplete) {
+      if(inputString == "isBiovici"){
+        Serial.println("isBiovici:true");
+      } 
+      // clear the string:
+      inputString = "";
+      stringComplete = false;
+    }
+
+}
+
+/*
+  SerialEvent occurs whenever data comes in the
+ hardware serial RX.  This routine is run between each
+ time loop() runs, so using delay inside loop can delay
+ response.  Multiple bytes of data may be available.
+ */
+void serialEvent() {
+  while (Serial.available()) {
+    // get the new byte:
+    char inChar = (char)Serial.read(); 
+    // add it to the inputString:
+    // if the incoming character is a newline, set a flag
+    // so the main loop can do something about it:
+    if (inChar == '\n') {
+      stringComplete = true;
+    } else {
+      inputString += inChar;
+    }
+  }
 }
 
 void sendStartCalibration(){
@@ -56,6 +95,10 @@ void sendEndCalibration(){
     Serial.println("Calibration finished");
 }
 
-void sendReading(){
+void sendStartReading(){
+    Serial.println("Reading started");
+}
+
+void sendEndReading(){
     Serial.println("Reading: 11");
 }
